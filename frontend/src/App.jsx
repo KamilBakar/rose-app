@@ -1,121 +1,102 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import AppShell from './components/AppShell.jsx'
+import { EmptyState } from './components/ui.jsx'
+import {
+  demoBookings,
+  demoEvents,
+  withEventCounts,
+} from './data/demo.js'
+import { useLocation } from './navigation.js'
+import {
+  AboutPage,
+  EventPage,
+  EventsPage,
+  HomePage,
+} from './pages/PublicPages.jsx'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  // Read the current address, such as /events or /events/event-id.
+  const location = useLocation()
+  const [path, search] = location.split('?')
+  const [, section, eventId, action] = path.split('/')
+  const referral = new URLSearchParams(search).get('ref')
+
+  // Prepare the sample events with their booking totals.
+  const events = demoEvents.map(event =>
+    withEventCounts(event, demoBookings)
+  )
+
+  const event = events.find(item => item.id === eventId)
+
+  let page
+
+  switch (section) {
+    case '':
+      page = <HomePage events={events} />
+      break
+
+    case 'events':
+      if (!eventId) {
+        page = <EventsPage events={events} />
+      } else if (!event) {
+        page = (
+          <EmptyState
+            title="Event not found"
+            to="/events"
+            action="Browse events"
+          />
+        )
+      } else if (action === 'register') {
+        // TODO: Connect the booking screens in the next step.
+        page = (
+          <EmptyState
+            title="Registration coming soon"
+            to={'/events/' + event.id}
+            action="Back to event"
+          >
+            The booking form will be added next.
+          </EmptyState>
+        )
+      } else {
+        page = <EventPage event={event} referral={referral} />
+      }
+      break
+
+    case 'about':
+      page = <AboutPage />
+      break
+
+    case 'bookings':
+    case 'staff':
+      // TODO: Connect booking lookup and staff screens later.
+      page = (
+        <EmptyState
+          title="Coming soon"
+          to="/"
+          action="Back to home"
+        >
+          This section will be added in a later update.
+        </EmptyState>
+      )
+      break
+
+    default:
+      page = (
+        <EmptyState
+          title="Page not found"
+          to="/"
+          action="Back to home"
+        />
+      )
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    <AppShell
+      path={path}
+      backTo={section === 'events' && eventId ? '/events' : undefined}
+    >
+      {page}
+    </AppShell>
   )
 }
 
