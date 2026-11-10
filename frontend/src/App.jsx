@@ -3,7 +3,7 @@ import AppShell from './components/AppShell.jsx'
 import { EmptyState } from './components/ui.jsx'
 import { demoBookings, demoEvents, eventPath, withEventCounts } from './data/demo.js'
 import { navigate, useLocation } from './navigation.js'
-import { BookingFlow, BookingResult } from './pages/BookingPages.jsx'
+import { BookingFlow, BookingResult, MyBookingsPage } from './pages/BookingPages.jsx'
 import { AboutPage, EventPage, EventsPage, HomePage } from './pages/PublicPages.jsx'
 import './App.css'
 
@@ -41,6 +41,17 @@ export default function App() {
     navigate('/bookings/' + reference)
   }
 
+  function cancelBooking(reference) {
+  // TODO(api): Save the cancellation through the PHP API.
+  setBookings(current =>
+    current.map(booking =>
+      booking.reference === reference
+        ? { ...booking, status: 'cancelled', attended: false }
+        : booking
+    )
+  )
+}
+
   let page
   let backTo = section === 'events' && id ? '/events' : undefined
 
@@ -75,19 +86,32 @@ export default function App() {
       page = <AboutPage />
       break
 
-    case 'bookings':
-    case 'staff':
-      if (section === 'bookings' && id) {
-        const booking = bookings.find(item => item.reference === id.toUpperCase())
-        const bookedEvent = events.find(item => item.id === booking?.eventId)
-        page = <BookingResult booking={booking} event={bookedEvent} />
-      } else {
-        page = (
-          <EmptyState title="Coming soon" to="/" action="Back to home">
-            This section will be added later.
-          </EmptyState>
-        )
+    case 'bookings': {
+      if (!id) {
+        page = <MyBookingsPage bookings={bookings} />
+        break
       }
+
+      const booking = bookings.find(item => item.reference === id.toUpperCase())
+      const bookedEvent = events.find(item => item.id === booking?.eventId)
+
+      page = (
+        <BookingResult
+          key={id}
+          booking={booking}
+          event={bookedEvent}
+          onCancel={cancelBooking}
+        />
+      )
+      break
+    }
+
+    case 'staff':
+      page = (
+        <EmptyState title="Coming soon" to="/" action="Back to home">
+          This section will be added in a later update.
+        </EmptyState>
+      )
       break
 
     case 'about':
