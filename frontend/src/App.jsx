@@ -84,7 +84,7 @@ export default function App() {
       } else {
         page = (
           <EmptyState title="Coming soon" to="/" action="Back to home">
-            This section will be added in a later update.
+            This section will be added later.
           </EmptyState>
         )
       }
