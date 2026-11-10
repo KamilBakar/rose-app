@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import AppShell from './components/AppShell.jsx'
+import AppShell, { StaffNav } from './components/AppShell.jsx'
+import { ForgotPasswordPage, StaffLogin } from './pages/StaffForms.jsx'
 import { EmptyState } from './components/ui.jsx'
 import { demoBookings, demoEvents, eventPath, withEventCounts } from './data/demo.js'
 import { navigate, useLocation } from './navigation.js'
 import { BookingFlow, BookingResult, MyBookingsPage } from './pages/BookingPages.jsx'
 import { AboutPage, EventPage, EventsPage, HomePage } from './pages/PublicPages.jsx'
+import { EventManagement, StaffDashboard } from './pages/StaffDashboard.jsx'
 import './App.css'
 
 export default function App() {
   const [bookings, setBookings] = useState(demoBookings)
+  const [staffSignedIn, setStaffSignedIn] = useState(false)
   const [path, search] = useLocation().split('?')
   const [, section, id, action, step] = path.split('/')
   const referral = new URLSearchParams(search).get('ref')
@@ -107,11 +110,48 @@ export default function App() {
     }
 
     case 'staff':
-      page = (
-        <EmptyState title="Coming soon" to="/" action="Back to home">
-          This section will be added in a later update.
-        </EmptyState>
-      )
+      if (id === 'forgot-password') {
+        page = <ForgotPasswordPage />
+      } else if (!staffSignedIn || id === 'login') {
+        page = (
+          <StaffLogin onSignIn={() => {
+            setStaffSignedIn(true)
+            navigate('/staff')
+          }} />
+        )
+      } 
+      else {
+        let staffPage
+
+        if (!id) {
+          staffPage = <StaffDashboard events={events} />
+        } else if (id === 'events' && action && action !== 'new' && !step) {
+          const staffEvent = events.find(item => item.id === action)
+          backTo = '/staff'
+
+          staffPage = staffEvent ? (
+            <EventManagement key={staffEvent.id} event={staffEvent} bookings={bookings} />
+          ) : (
+            <EmptyState title="Event not found" to="/staff" action="Back to Dashboard" />
+          )
+        } else {
+          staffPage = (
+            <EmptyState title="Not added yet" to="/staff" action="Back to Dashboard">
+              Will add later
+            </EmptyState>
+          )
+        }
+
+        page = (
+          <div className="staff-area">
+            <StaffNav path={path} onSignOut={() => {
+              setStaffSignedIn(false)
+              navigate('/staff/login')
+            }} />
+            {staffPage}
+          </div>
+        )
+      }
       break
 
     case 'about':
