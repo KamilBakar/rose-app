@@ -29,7 +29,7 @@ export function StaffLogin({ onSignIn }) {
             {showPassword ? 'Hide' : <Icon name="eye-off" />}
           </button>}
         />
-        <p className="demo-note">Use the demo button to open the staff area, or enter sample details and sign in.</p>
+        <p className="demo-note">Use the demo button to open the staff area, or enter the sample credentials which is staff@example.com and the password is demo123.</p>
         <div className="auth-actions">
           <Button type="submit">Sign In</Button>
           <Button variant="outline" onClick={onSignIn}>Use Demo Access</Button>

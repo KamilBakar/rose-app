@@ -87,7 +87,7 @@ export function BookingFlow({ event, step, referral, onBook }) {
           <Field label="Phone number" name="phone" type="tel" autoComplete="tel" placeholder="Enter your phone number" defaultValue={draft?.phone} pattern=".*[0-9].*" required />
           <Field label="Age (optional)" name="age" options={ageOptions} defaultValue={draft?.age ?? ''} />
           <Field label="Reference" name="referral" options={referralOptions} defaultValue={draft?.referral ?? startingReferral} />
-          <p className="field-hint">Prototype form. Use sample details for this booking.</p>
+          <p className="field-hint">Prototype form. Won't save anything just yet.</p>
           <div className="form-actions"><Button type="submit">Continue</Button></div>
         </form>
       )}
