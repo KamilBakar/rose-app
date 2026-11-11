@@ -76,7 +76,6 @@ export function AboutPage() {
       <div className="about-layout">
         <div className="about-art" aria-hidden="true">
           <Icon name="banner-image" />
-          <Icon name="banner-image" />
         </div>
         <div className="about-copy">
           <section className="panel">
