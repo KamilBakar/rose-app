@@ -13,7 +13,6 @@
   flex-direction: column;
   align-items: flex-start;
   color: var(--brand);
-  font-family: 'Istok Web', sans-serif;
   line-height: .95;
   text-decoration: none;
 }
@@ -343,7 +342,6 @@
   height: 90px;
   flex: none;
   border-radius: 50%;
-  font-family: 'Istok Web', sans-serif;
   font-size: 2.8rem;
 }
 .status-icon--waiting { border: 1px solid var(--brand); background: var(--pink); color: var(--brand); }
@@ -428,7 +426,6 @@
   font-weight: 750;
   white-space: nowrap;
 }
-
 .chip--success { color: #126b39; background: #e7f6ed; }
 .filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 800px; }
 .walk-in-form { max-width: 600px; margin-top: 18px; }

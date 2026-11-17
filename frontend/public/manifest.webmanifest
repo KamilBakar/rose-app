@@ -1,0 +1,15 @@
+{
+  "id": "./",
+  "name": "ROSE Foundation Event Booking",
+  "short_name": "ROSE Booking",
+  "description": "Browse ROSE community screening events and manage your bookings.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#e91e63",
+  "icons": [
+    { "src": "icons/rose-small.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/rose-large.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

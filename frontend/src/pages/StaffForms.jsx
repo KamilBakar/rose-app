@@ -50,3 +50,48 @@ export function ForgotPasswordPage() {
     </section>
   )
 }
+
+export function EventForm({ event, onSave }) {
+  const [error, setError] = useState('')
+
+  function save(submission) {
+    submission.preventDefault()
+    const fields = new FormData(submission.currentTarget)
+    const startTime = fields.get('startTime')
+    const endTime = fields.get('endTime')
+
+    if (endTime <= startTime) {
+      setError('Choose an end time after the start time.')
+      return
+    }
+
+    onSave({
+      title: fields.get('title').trim(),
+      description: fields.get('description').trim(),
+      location: fields.get('location').trim(),
+      date: fields.get('date'),
+      startTime,
+      endTime,
+      capacity: Number(fields.get('capacity')),
+    }, event?.id)
+  }
+
+  return (
+    <section className="narrow-page">
+      <PageHeading title={event ? 'Edit an Event' : 'Create an Event'} />
+      <form className="form-stack" onSubmit={save} onInput={() => setError('')}>
+        <Field label="Event Title" name="title" placeholder="e.g. Women’s Health Screening" defaultValue={event?.title} pattern=".*\S.*" required />
+        <Field label="Description" name="description" placeholder="Enter event description" defaultValue={event?.description} rows={2} multiline required />
+        <Field label="Location" name="location" placeholder="e.g. Community Center A" defaultValue={event?.location} pattern=".*\S.*" required />
+        <div className="event-form-dates">
+          <Field label="Date" name="date" type="date" defaultValue={event?.date} required />
+          <Field label="Start time" name="startTime" type="time" defaultValue={event?.startTime} required />
+          <Field label="End time" name="endTime" type="time" defaultValue={event?.endTime} required />
+        </div>
+        <Field label="Maximum Capacity" name="capacity" type="number" min={Math.max(1, event?.booked ?? 0)} step="1" placeholder="e.g. 100" defaultValue={event?.capacity} required />
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="form-actions"><Button type="submit">{event ? 'Save Changes' : 'Continue'}</Button></div>
+      </form>
+    </section>
+  )
+}
