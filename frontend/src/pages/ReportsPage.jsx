@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button, Field, PageHeading } from '../components/ui.jsx'
-import { referralSources } from '../data/demo.js'
+import { referralSources } from '../data/events.js'
 
 function ReferralChart({ rows }) {
   const max = Math.max(5, Math.ceil(Math.max(...rows.map(row => row.count)) / 5) * 5)
@@ -36,7 +36,6 @@ export default function ReportsPage({ events, initialEvent }) {
   const selected = events.find(event => event.id === eventId)
   const scope = selected ? [selected] : events
 
-  // TODO(api): Load referral totals from the staff reporting endpoint.
   const rows = referralSources.map(source => ({
     ...source,
     count: scope.reduce((total, event) => total + (event.referrals[source.id] ?? 0), 0),

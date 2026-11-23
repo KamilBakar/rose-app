@@ -2,7 +2,7 @@ import EventBanner from '../components/EventBanner.jsx'
 import EventCard, { EventMetadata } from '../components/EventCard.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, EmptyState, PageHeading } from '../components/ui.jsx'
-import { eventPath } from '../data/demo.js'
+import { eventPath } from '../data/events.js'
 
 function EventGrid({ events }) {
   if (!events.length) return <EmptyState title="No events to show">Upcoming events will appear here.</EmptyState>

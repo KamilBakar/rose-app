@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import { Button, Field, PageHeading } from '../components/ui.jsx'
 
-export function StaffLogin({ onSignIn }) {
+export function StaffLogin({ onSignIn, busy }) {
   const [showPassword, setShowPassword] = useState(false)
 
   return (
@@ -11,8 +11,8 @@ export function StaffLogin({ onSignIn }) {
       <PageHeading title="Staff Login" description="Sign in to access event management features." />
       <form className="form-stack" onSubmit={submission => {
         submission.preventDefault()
-        // TODO(api): Replace demo access with the staff authentication endpoint.
-        onSignIn()
+        const fields = new FormData(submission.currentTarget)
+        onSignIn({ email: fields.get('email'), password: fields.get('password') })
       }}>
         <Field label="Email address" name="email" type="email" placeholder="Email address" icon="person-muted" autoComplete="off" hideLabel required />
         <Field
@@ -29,10 +29,10 @@ export function StaffLogin({ onSignIn }) {
             {showPassword ? 'Hide' : <Icon name="eye-off" />}
           </button>}
         />
-        <p className="demo-note">Use the demo button to open the staff area, or enter the sample credentials which is staff@example.com and the password is demo123.</p>
+        <p className="demo-note">Local test account · staff@example.com / demo123</p>
         <div className="auth-actions">
-          <Button type="submit">Sign In</Button>
-          <Button variant="outline" onClick={onSignIn}>Use Demo Access</Button>
+          <Button type="submit" disabled={busy}>Sign In</Button>
+          <Button variant="outline" disabled={busy} onClick={() => onSignIn({ email: 'staff@example.com', password: 'demo123' })}>Use Demo Access</Button>
           <a href="#/staff/forgot-password" className="text-link">Forgot password?</a>
         </div>
       </form>
@@ -45,14 +45,14 @@ export function ForgotPasswordPage() {
     <section className="auth-page narrow-page">
       <div className="status-icon status-icon--waiting"><Icon name="contact-person" /></div>
       <PageHeading title="Please contact company staff" description="Ask your ROSE team administrator for help accessing your account." />
-      {/* TODO(api): Add a staff password reset flow when authentication is connected. */}
       <Button to="/staff/login" variant="outline">Back to Staff Login</Button>
     </section>
   )
 }
 
-export function EventForm({ event, onSave }) {
+export function EventForm({ event, onSave, busy }) {
   const [error, setError] = useState('')
+  const [requestId] = useState(() => crypto.randomUUID())
 
   function save(submission) {
     submission.preventDefault()
@@ -66,6 +66,7 @@ export function EventForm({ event, onSave }) {
     }
 
     onSave({
+      requestId,
       title: fields.get('title').trim(),
       description: fields.get('description').trim(),
       location: fields.get('location').trim(),
@@ -90,7 +91,7 @@ export function EventForm({ event, onSave }) {
         </div>
         <Field label="Maximum Capacity" name="capacity" type="number" min={Math.max(1, event?.booked ?? 0)} step="1" placeholder="e.g. 100" defaultValue={event?.capacity} required />
         {error && <p className="form-error" role="alert">{error}</p>}
-        <div className="form-actions"><Button type="submit">{event ? 'Save Changes' : 'Continue'}</Button></div>
+        <div className="form-actions"><Button type="submit" disabled={busy}>{event ? 'Save Changes' : 'Continue'}</Button></div>
       </form>
     </section>
   )

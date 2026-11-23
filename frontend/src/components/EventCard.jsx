@@ -1,5 +1,5 @@
 import Icon from './Icon.jsx'
-import { eventDate, eventPath, eventTime } from '../data/demo.js'
+import { eventDate, eventPath, eventTime } from '../data/events.js'
 
 export function EventThumbnail() {
   // TODO(api): Display the event’s image when the event response includes one.

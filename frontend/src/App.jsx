@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import AppShell, { StaffNav } from './components/AppShell.jsx'
 import { EventForm, ForgotPasswordPage, StaffLogin } from './pages/StaffForms.jsx'
-import { EmptyState } from './components/ui.jsx'
-import { demoBookings, demoEvents, eventPath, withEventCounts } from './data/demo.js'
+import { Button, EmptyState } from './components/ui.jsx'
+import { eventPath } from './data/events.js'
+import { api, post } from './api.js'
+import usePageData from './usePageData.js'
 import { navigate, useLocation } from './navigation.js'
 import { BookingFlow, BookingResult, MyBookingsPage } from './pages/BookingPages.jsx'
 import { AboutPage, EventPage, EventsPage, HomePage } from './pages/PublicPages.jsx'
@@ -12,98 +14,100 @@ import ReportsPage from './pages/ReportsPage.jsx'
 import './App.css'
 
 export default function App() {
-  const [bookings, setBookings] = useState(demoBookings)
-  const [staffSignedIn, setStaffSignedIn] = useState(false)
-  const [eventList, setEventList] = useState(demoEvents)
   const [path, search] = useLocation().split('?')
   const [, section, id, action, step] = path.split('/')
   const params = new URLSearchParams(search)
   const referral = params.get('ref')
   const eventFilter = params.get('event') ?? ''
 
-  const events = eventList.map(event => withEventCounts(event, bookings))
+  let scope = 'public'
+  if (section === 'staff') scope = path
+  if (section === 'bookings' && id) scope = 'booking/' + id
+  const { data, error, refresh, clear } = usePageData(scope)
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState(null)
+  const pending = useRef(false)
+
+  const events = data?.events ?? []
+  const bookings = data?.bookings ?? []
   const event = events.find(item => item.id === id)
 
+  async function run(work) {
+    if (pending.current) return false
+    pending.current = true
+    setBusy(true)
+    setFailure(null)
+    try {
+      await work()
+      refresh()
+      return true
+    } catch (error) {
+      setFailure({ path, message: error.message })
+      return false
+    } finally {
+      pending.current = false
+      setBusy(false)
+    }
+  }
+
   function createBooking(event, draft) {
-    const suffix = crypto.randomUUID().slice(0, 8).toUpperCase()
-    const reference = 'ROSE-DEMO-' + suffix
-
-    // TODO(api): Submit the booking and use the status and reference returned by PHP.
-    setBookings(current => {
-      const { remaining, waitlist } = withEventCounts(event, current)
-      const waiting = remaining === 0
-      const booking = {
-        reference,
-        eventId: event.id,
-        name: draft.name,
-        phone: draft.phone,
-        referral: draft.referral,
-        status: waiting ? 'waiting' : 'confirmed',
-        position: waiting ? waitlist + 1 : undefined,
-        attended: false,
-      }
-
-      return [...current, booking]
+    return run(async () => {
+      const { reference } = await post('bookings.php', { ...draft, eventId: event.id })
+      navigate('/bookings/' + reference)
     })
+  }
 
-    navigate('/bookings/' + reference)
+  function lookupBooking(fields) {
+    return run(async () => {
+      const { reference } = await post('bookings.php', { ...fields, action: 'lookup' })
+      navigate('/bookings/' + reference)
+    })
   }
 
   function cancelBooking(reference) {
-    // TODO(api): Save the cancellation through the PHP API.
-    setBookings(current =>
-      current.map(booking =>
-        booking.reference === reference
-          ? { ...booking, status: 'cancelled', attended: false }
-          : booking
-      )
-    )
+    return run(() => post('bookings.php', { action: 'cancel', reference }))
   }
 
   function saveEvent(fields, eventId) {
-    const nextId = eventId ?? 'event-' + crypto.randomUUID()
-
-    // TODO(api): Save the event through PHP and use the ID returned by the API.
-    setEventList(current =>
-      eventId
-        ? current.map(event => event.id === eventId ? { ...event, ...fields } : event)
-        : [...current, { ...fields, id: nextId, referralCounts: {}, waiting: 0 }]
-    )
-
-    navigate('/staff/events/' + nextId)
+    return run(async () => {
+      const endpoint = 'events.php' + (eventId ? '?id=' + encodeURIComponent(eventId) : '')
+      const { id } = await api(endpoint, { method: eventId ? 'PUT' : 'POST', data: fields })
+      navigate('/staff/events/' + id)
+    })
   }
 
   function checkInBooking(reference) {
-  // TODO(api): Save attendance through the PHP API.
-  setBookings(current =>
-    current.map(booking =>
-      booking.reference === reference && booking.status === 'confirmed'
-        ? { ...booking, attended: true }
-        : booking
-    )
-  )
-}
+    return run(() => post('bookings.php', { action: 'checkIn', reference }))
+  }
 
-function addWalkIn(event, name, phone) {
-  const reference = 'ROSE-DEMO-' + crypto.randomUUID().slice(0, 8).toUpperCase()
+  function addWalkIn(event, fields) {
+    return run(() => post('bookings.php', { ...fields, action: 'walkIn', eventId: event.id }))
+  }
 
-  // TODO(api): Create a checked-in booking and enforce capacity in PHP.
-    setBookings(current => {
-      const liveEvent = withEventCounts(event, current)
-      if (liveEvent.remaining === 0) return current
-
-      const booking = {
-        reference,
-        eventId: event.id,
-        name,
-        phone,
-        referral: 'general',
-        status: 'confirmed',
-        attended: true,
-      }
-
-      return [...current, booking]
+  function login(fields) {
+    return run(async () => {
+      await post('staff.php', fields)
+      clear()
+      navigate('/staff')
     })
+  }
+
+  function logout() {
+    return run(async () => {
+      await post('staff.php', { action: 'logout' })
+      clear()
+      navigate('/staff/login')
+    })
+  }
+
+  const feedback = (error || failure?.path === path) && (
+    <div role="alert" className="panel form-error">
+      {failure?.path === path && <p>{failure.message}</p>}
+      {error && <p>{error} <Button variant="outline" onClick={refresh}>Retry</Button></p>}
+    </div>
+  )
+  if (!data) {
+    return <AppShell path={path}>{feedback || <p role="status">Loading…</p>}</AppShell>
   }
 
   let page
@@ -129,6 +133,7 @@ function addWalkIn(event, name, phone) {
             step={step}
             referral={referral}
             onBook={createBooking}
+            busy={busy}
           />
         )
       } else {
@@ -142,11 +147,11 @@ function addWalkIn(event, name, phone) {
 
     case 'bookings': {
       if (!id) {
-        page = <MyBookingsPage bookings={bookings} />
+        page = <MyBookingsPage onLookup={lookupBooking} busy={busy} />
         break
       }
 
-      const booking = bookings.find(item => item.reference === id.toUpperCase())
+      const booking = data.booking
       const bookedEvent = events.find(item => item.id === booking?.eventId)
 
       page = (
@@ -155,6 +160,7 @@ function addWalkIn(event, name, phone) {
           booking={booking}
           event={bookedEvent}
           onCancel={cancelBooking}
+          busy={busy}
         />
       )
       break
@@ -163,15 +169,11 @@ function addWalkIn(event, name, phone) {
     case 'staff':
       if (id === 'forgot-password') {
         page = <ForgotPasswordPage />
-      } else if (!staffSignedIn || id === 'login') {
+      } else if (!data.signedIn || id === 'login') {
         page = (
-          <StaffLogin onSignIn={() => {
-            setStaffSignedIn(true)
-            navigate('/staff')
-          }} />
+          <StaffLogin onSignIn={login} busy={busy} />
         )
-      } 
-      else {
+      } else {
         let staffPage
 
         if (!id) {
@@ -186,24 +188,20 @@ function addWalkIn(event, name, phone) {
               initialEvent={eventFilter}
               onCheckIn={checkInBooking}
               onWalkIn={addWalkIn}
+              busy={busy}
             />
           )
         } else if (id === 'reports') {
-            backTo = '/staff'
-            staffPage = (
-              <ReportsPage
-                key={eventFilter}
-                events={events}
-                initialEvent={eventFilter}
-              />
-            )
-          } else if (id === 'events') {
-            
+          backTo = '/staff'
+          staffPage = (
+            <ReportsPage key={eventFilter} events={events} initialEvent={eventFilter} />
+          )
+        } else if (id === 'events') {
           const staffEvent = events.find(item => item.id === action)
           backTo = '/staff'
 
           if (action === 'new') {
-            staffPage = <EventForm key="new" onSave={saveEvent} />
+            staffPage = <EventForm key="new" onSave={saveEvent} busy={busy} />
           } else if (!staffEvent) {
             staffPage = (
               <EmptyState title="Event not found" to="/staff" action="Back to Dashboard" />
@@ -211,11 +209,11 @@ function addWalkIn(event, name, phone) {
           } else if (step === 'edit') {
             backTo = '/staff/events/' + staffEvent.id
             staffPage = (
-              <EventForm key={staffEvent.id} event={staffEvent} onSave={saveEvent} />
+              <EventForm key={staffEvent.id} event={staffEvent} onSave={saveEvent} busy={busy} />
             )
           } else {
             staffPage = (
-              <EventManagement key={staffEvent.id} event={staffEvent} bookings={bookings} />
+              <EventManagement key={staffEvent.id} event={staffEvent} bookings={bookings} onCancel={cancelBooking} busy={busy} />
             )
           }
         } else {
@@ -228,10 +226,7 @@ function addWalkIn(event, name, phone) {
 
         page = (
           <div className="staff-area">
-            <StaffNav path={path} onSignOut={() => {
-              setStaffSignedIn(false)
-              navigate('/staff/login')
-            }} />
+            <StaffNav path={path} onSignOut={logout} />
             {staffPage}
           </div>
         )
@@ -242,5 +237,5 @@ function addWalkIn(event, name, phone) {
       page = <EmptyState title="Page not found" to="/" action="Back to home" />
   }
 
-  return <AppShell path={path} backTo={backTo}>{page}</AppShell>
+  return <AppShell path={path} backTo={backTo}>{feedback}{page}</AppShell>
 }

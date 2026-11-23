@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { EventThumbnail } from '../components/EventCard.jsx'
 import { Button, PageHeading } from '../components/ui.jsx'
-import { eventDate, eventPath, referralSources } from '../data/demo.js'
+import { eventDate, eventPath, referralSources } from '../data/events.js'
 
 function StaffEventCard({ event }) {
   return (
@@ -56,8 +56,9 @@ export function StaffDashboard({ events }) {
   )
 }
 
-export function EventManagement({ event, bookings }) {
+export function EventManagement({ event, bookings, onCancel, busy }) {
   const [notice, setNotice] = useState('')
+  const [confirmRef, setConfirmRef] = useState(null)
   const eventBookings = bookings.filter(booking => booking.eventId === event.id)
 
   return (
@@ -69,7 +70,6 @@ export function EventManagement({ event, bookings }) {
         <Button to={'/staff/attendance?event=' + event.id} variant="outline">Attendance</Button>
         <Button to={'/staff/reports?event=' + event.id} variant="outline">Referral Report</Button>
         <Button variant="outline" onClick={() => {
-          // TODO(api): Connect the staff notification action to the approved delivery service.
           setNotice('Demo notification recorded.')
         }}>Notify customers</Button>
       </div>
@@ -83,25 +83,31 @@ export function EventManagement({ event, bookings }) {
             {referralSources.map(source => (
               <li key={source.id}>
                 <a className="text-link" href={'#' + eventPath(event) + '?ref=' + source.id}>{source.name}</a>
-                {/* TODO(api): Generate shareable URLs and QR assets when referral codes are stored. */}
                 <span className="chip">QR placeholder</span>
               </li>
             ))}
           </ul>
         </section>
         <section className="panel">
-          <h2>Sample bookings</h2>
+          <h2>Bookings</h2>
           {eventBookings.length ? (
             <ul className="sample-bookings">
               {eventBookings.map(booking => (
                 <li key={booking.reference}>
                   <div><strong>{booking.name}</strong><small>{booking.reference}</small></div>
                   <span className="chip">{booking.status}</span>
+                  {booking.status !== 'cancelled' && (confirmRef === booking.reference ? (
+                    <div>
+                      <Button variant="outline" onClick={() => setConfirmRef(null)}>Keep</Button>
+                      <Button disabled={busy} onClick={async () => {
+                        if (await onCancel(booking.reference)) setConfirmRef(null)
+                      }}>Confirm cancellation</Button>
+                    </div>
+                  ) : <Button variant="outline" onClick={() => setConfirmRef(booking.reference)}>Cancel</Button>)}
                 </li>
               ))}
             </ul>
-          ) : <p className="muted">Individual sample records will appear here as you make bookings.</p>}
-          {/* TODO(api): Request the full staff booking list and CSV export for this event. */}
+          ) : <p className="muted">No bookings for this event yet.</p>}
         </section>
       </div>
       <div className="staff-actions"><Button to="/staff" variant="outline">Back to Dashboard</Button></div>

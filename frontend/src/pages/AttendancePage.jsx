@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Button, EmptyState, Field, PageHeading } from '../components/ui.jsx'
 
-export default function AttendancePage({ events, bookings, initialEvent, onCheckIn, onWalkIn }) {
+export default function AttendancePage({ events, bookings, initialEvent, onCheckIn, onWalkIn, busy }) {
   const [eventId, setEventId] = useState(initialEvent)
   const [query, setQuery] = useState('')
-  const [showWalkIn, setShowWalkIn] = useState(false)
+  const [walkInId, setWalkInId] = useState(null)
+  const showWalkIn = Boolean(walkInId)
   const event = events.find(item => item.id === eventId) ?? events[0]
   const search = query.trim().toLowerCase()
   const attendees = bookings.filter(booking => booking.eventId === event?.id
@@ -14,30 +15,31 @@ export default function AttendancePage({ events, bookings, initialEvent, onCheck
   return (
     <section>
       <PageHeading title="Event Attendance" description="Find a booking and mark the participant as checked in." eyebrow="Staff check-in">
-        <Button variant="outline" disabled={!event?.remaining} aria-expanded={showWalkIn} onClick={() => setShowWalkIn(value => !value)}>
+        <Button variant="outline" disabled={!event?.remaining} aria-expanded={showWalkIn} onClick={() => setWalkInId(showWalkIn ? null : crypto.randomUUID())}>
           {showWalkIn ? 'Close Walk-in Form' : 'Add Walk-in'}
         </Button>
       </PageHeading>
       <div className="filter-grid">
         <Field label="Select event" value={event?.id ?? ''} onChange={change => {
           setEventId(change.target.value)
-          setShowWalkIn(false)
+          setWalkInId(null)
         }} options={events.map(item => ({ value: item.id, label: item.title }))} />
         <Field label="Search attendees" type="search" placeholder="Search name or phone number..." icon="person-muted" value={query} onChange={change => setQuery(change.target.value)} />
       </div>
 
       {showWalkIn && event?.remaining > 0 && (
-        <form className="panel form-stack walk-in-form" onSubmit={submission => {
+        <form className="panel form-stack walk-in-form" onSubmit={async submission => {
           submission.preventDefault()
           const data = new FormData(submission.currentTarget)
-          // TODO(api): Save eligible walk-ins and their attendance to the event.
-          onWalkIn(event, data.get('name').trim(), data.get('phone').trim())
-          setShowWalkIn(false)
+          const saved = await onWalkIn(event, {
+            name: data.get('name').trim(), phone: data.get('phone').trim(), requestId: walkInId,
+          })
+          if (saved) setWalkInId(null)
         }}>
           <h2>Add eligible walk-in</h2>
           <Field label="Full Name" name="name" pattern=".*\S.*" required />
           <Field label="Phone number" name="phone" type="tel" pattern=".*[0-9].*" required />
-          <Button type="submit">Add and Check In</Button>
+          <Button type="submit" disabled={busy}>Add and Check In</Button>
         </form>
       )}
 
@@ -51,7 +53,7 @@ export default function AttendancePage({ events, bookings, initialEvent, onCheck
                 {attendee.attended ? (
                   <span className="chip chip--success">Checked in</span>
                 ) : (
-                  <Button className="button--small" onClick={() => onCheckIn(attendee.reference)} aria-label={'Check in ' + attendee.name}>Check-in</Button>
+                  <Button className="button--small" disabled={busy} onClick={() => onCheckIn(attendee.reference)} aria-label={'Check in ' + attendee.name}>Check-in</Button>
                 )}
               </li>
             ))}

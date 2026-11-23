@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import { Button, EmptyState, Field, PageHeading } from '../components/ui.jsx'
-import { eventDate, eventPath, eventTime, referralSources } from '../data/demo.js'
+import { eventDate, eventPath, eventTime, referralSources } from '../data/events.js'
 import { navigate } from '../navigation.js'
 
 const referralOptions = referralSources.map(source => ({ value: source.id, label: source.name }))
@@ -33,7 +33,8 @@ function BookingSteps({ current }) {
   )
 }
 
-export function BookingFlow({ event, step, referral, onBook }) {
+export function BookingFlow({ event, step, referral, onBook, busy }) {
+  const [requestId] = useState(() => crypto.randomUUID())
   const [draft, setDraft] = useState(null)
   const eligibility = step === 'eligibility' && draft !== null
   const startingReferral = referralSources.some(source => source.id === referral) ? referral : 'general'
@@ -62,8 +63,11 @@ export function BookingFlow({ event, step, referral, onBook }) {
       {eligibility ? (
         <form key="eligibility" className="form-stack" onSubmit={submission => {
           submission.preventDefault()
-          // TODO(api): Validate eligibility on the server when submitting a real booking.
-          onBook(event, draft)
+          const fields = new FormData(submission.currentTarget)
+          onBook(event, {
+            ...draft, requestId, income: fields.get('income'),
+            resident: fields.has('resident'), b40: fields.has('b40'), eligible: fields.has('eligible'),
+          })
         }}>
           <div className="form-intro">
             <h2>B40 Eligibility Confirmation</h2>
@@ -72,13 +76,13 @@ export function BookingFlow({ event, step, referral, onBook }) {
           <Field label="Monthly Household Income" name="income" defaultValue="" options={incomeOptions} required />
           <fieldset className="eligibility-checklist">
             <legend className="sr-only">Eligibility checklist</legend>
-            <label><input type="checkbox" required /> <span>I am a Malaysian citizen or permanent resident.</span></label>
-            <label><input type="checkbox" required /> <span>My household income is within the B40 category.</span></label>
-            <label><input type="checkbox" required /> <span>I understand this service is for eligible women only.</span></label>
+            <label><input type="checkbox" name="resident" required /> <span>I am a Malaysian citizen or permanent resident.</span></label>
+            <label><input type="checkbox" name="b40" required /> <span>My household income is within the B40 category.</span></label>
+            <label><input type="checkbox" name="eligible" required /> <span>I understand this service is for eligible women only.</span></label>
           </fieldset>
           <div className="form-actions">
             <Button to={bookingPath + referralQuery} variant="outline">Back</Button>
-            <Button type="submit">Continue</Button>
+            <Button type="submit" disabled={busy}>Continue</Button>
           </div>
         </form>
       ) : (
@@ -87,38 +91,28 @@ export function BookingFlow({ event, step, referral, onBook }) {
           <Field label="Phone number" name="phone" type="tel" autoComplete="tel" placeholder="Enter your phone number" defaultValue={draft?.phone} pattern=".*[0-9].*" required />
           <Field label="Age (optional)" name="age" options={ageOptions} defaultValue={draft?.age ?? ''} />
           <Field label="Reference" name="referral" options={referralOptions} defaultValue={draft?.referral ?? startingReferral} />
-          <p className="field-hint">Prototype form. Won't save anything just yet.</p>
-          <div className="form-actions"><Button type="submit">Continue</Button></div>
+          <div className="form-actions"><Button type="submit" disabled={busy}>Continue</Button></div>
         </form>
       )}
     </section>
   )
 }
 
-export function MyBookingsPage({ bookings }) {
-  const [error, setError] = useState('')
-
+export function MyBookingsPage({ onLookup, busy }) {
   function findBooking(submission) {
     submission.preventDefault()
     const fields = new FormData(submission.currentTarget)
-    const reference = fields.get('reference').trim().toUpperCase()
-    const name = fields.get('name').trim().toLowerCase()
-
-    // TODO(api): Look up the booking by its reference and participant details.
-    const booking = bookings.find(item => item.reference === reference && item.name.toLowerCase() === name)
-    if (booking) navigate('/bookings/' + booking.reference)
-    else setError('We couldn’t find a booking with that reference and name.')
+    onLookup({ reference: fields.get('reference').trim(), name: fields.get('name').trim() })
   }
 
   return (
     <section className="narrow-page">
       <PageHeading title="My Bookings" description="Enter your booking details to view or cancel your place." />
-      <form className="form-stack" onSubmit={findBooking} onInput={() => setError('')}>
+      <form className="form-stack" onSubmit={findBooking}>
         <Field label="Booking Reference Number" name="reference" placeholder="Enter your booking reference" autoCapitalize="characters" required />
         <Field label="Name" name="name" autoComplete="name" placeholder="Enter your full name" required />
         <p className="demo-note"><strong>Try a sample booking</strong><br />ROSE-REF12345 · Demo Participant</p>
-        {error && <p className="form-error" role="alert">{error}</p>}
-        <div className="form-actions"><Button type="submit">Continue</Button></div>
+        <div className="form-actions"><Button type="submit" disabled={busy}>Continue</Button></div>
       </form>
     </section>
   )
@@ -139,7 +133,7 @@ function BookingSummary({ event, reference }) {
 function addToCalendar(event, reference) {
   const calendarValue = value => value.replaceAll('\\', '\\\\').replaceAll('\n', '\\n').replaceAll(',', '\\,').replaceAll(';', '\\;')
   const calendarDateTime = date => date.toISOString().replace(/[-:]|\.\d{3}/g, '')
-  // Event times in the prototype are Malaysian local times.
+  // Event times in the prototype are Malaysian local time
   const eventTimeUtc = time => calendarDateTime(new Date(event.date + 'T' + time + ':00+08:00'))
   const calendar = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ROSE Foundation//Event Booking Prototype//EN',
@@ -156,14 +150,14 @@ function addToCalendar(event, reference) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export function BookingResult({ booking, event, onCancel }) {
+export function BookingResult({ booking, event, onCancel, busy }) {
   const [confirmCancel, setConfirmCancel] = useState(false)
 
   if (!booking || !event) {
     return (
       <div className="narrow-page">
         <EmptyState title="Booking not found" to="/bookings" action="Find a booking">
-          Bookings made during this demo are available until the page is refreshed.
+          Enter your booking reference and name to open your booking on this device.
         </EmptyState>
       </div>
     )
@@ -173,8 +167,8 @@ export function BookingResult({ booking, event, onCancel }) {
   const cancelled = booking.status === 'cancelled'
   const title = waiting ? 'You’re on the Waiting List' : cancelled ? 'Booking Successfully Cancelled' : 'Booking Confirmed!'
   const description = waiting
-    ? 'This event is currently full. Your request has been added to the demo waiting list.'
-    : cancelled ? 'Your place has been cancelled.' : 'Your place has been reserved in this demo.'
+    ? 'This event is currently full. Your request has been added to the waiting list.'
+    : cancelled ? 'Your place has been cancelled.' : 'Your place has been reserved.'
 
   return (
     <section className="status-page narrow-page">
@@ -195,17 +189,17 @@ export function BookingResult({ booking, event, onCancel }) {
         <BookingSummary event={event} reference={booking.reference} />
       )}
 
-      {cancelled || waiting ? (
+      {cancelled ? (
         <div className="status-actions"><Button to="/" variant="outline">Back to home</Button></div>
       ) : confirmCancel ? (
         <div className="status-actions cancel-panel">
           <p>Cancel your place at this event?</p>
           <Button variant="outline" onClick={() => setConfirmCancel(false)}>Keep my booking</Button>
-          <Button onClick={() => { onCancel(booking.reference); setConfirmCancel(false) }}>Confirm Cancellation</Button>
+          <Button disabled={busy} onClick={async () => { if (await onCancel(booking.reference)) setConfirmCancel(false) }}>Confirm Cancellation</Button>
         </div>
       ) : (
         <div className="status-actions">
-          <Button variant="outline" onClick={() => addToCalendar(event, booking.reference)}>Add to Calendar</Button>
+          {!waiting && <Button variant="outline" onClick={() => addToCalendar(event, booking.reference)}>Add to Calendar</Button>}
           <Button onClick={() => setConfirmCancel(true)}>Cancel My Booking</Button>
         </div>
       )}
